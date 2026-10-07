@@ -2,16 +2,16 @@ import {
   addDoc,
   collection,
   Timestamp,
+  doc,
+  setDoc,
 } from 'firebase/firestore';
 
 import { db } from '../config/firebase';
+
 import { criarAgendamento } from './agendamento';
 
-/*
- * Converte a data "YYYY-MM-DD" para uma data local.
- * Isso evita problemas de fuso horário.
- */
 function criarDataLocal(data) {
+
   if (data instanceof Date) {
     return new Date(data);
   }
@@ -41,23 +41,18 @@ function criarDataLocal(data) {
   );
 }
 
-/*
- * Salva uma notificação no histórico do Firebase.
- *
- * IMPORTANTE:
- * Aqui não existe mais expo-notifications.
- * A notificação é apenas registrada no histórico
- * para aparecer dentro do aplicativo.
- */
-async function salvarNotificacao({
+export async function salvarNotificacao({
   usuarioId,
   tipo,
   titulo,
   mensagem,
-  data,
+  data = new Date(),
   dados = {},
+  chaveUnica = null,
 }) {
+
   try {
+
     const documento = {
       usuarioId,
       tipo,
@@ -69,18 +64,54 @@ async function salvarNotificacao({
       dados,
     };
 
-    const referencia = await addDoc(
-      collection(db, 'notificacoes'),
-      documento
-    );
+    if (chaveUnica) {
+
+      const referencia =
+        doc(
+          db,
+          'notificacoes',
+          chaveUnica
+        );
+
+
+      await setDoc(
+        referencia,
+        documento,
+        {
+          merge: false,
+        }
+      );
+
+
+      console.log(
+        'NOTIFICAÇÃO SALVA:',
+        chaveUnica
+      );
+
+
+      return chaveUnica;
+    }
+
+    const referencia =
+      await addDoc(
+        collection(
+          db,
+          'notificacoes'
+        ),
+        documento
+      );
+
 
     console.log(
-      'NOTIFICAÇÃO SALVA NO HISTÓRICO:',
+      'NOTIFICAÇÃO SALVA:',
       referencia.id
     );
 
+
     return referencia.id;
+
   } catch (error) {
+
     console.log(
       'ERRO AO SALVAR NOTIFICAÇÃO:',
       error
@@ -90,12 +121,6 @@ async function salvarNotificacao({
   }
 }
 
-/*
- * Cria o agendamento e registra um aviso
- * imediatamente no histórico.
- *
- * NÃO agenda nenhuma notificação no Android.
- */
 export async function criarAgendamentoComNotificacao({
   usuarioId,
   petId,
@@ -104,45 +129,50 @@ export async function criarAgendamentoComNotificacao({
   data,
   horario,
 }) {
+
   try {
+
     const dataAgendamento =
       criarDataLocal(data);
+
 
     if (
       Number.isNaN(
         dataAgendamento.getTime()
       )
     ) {
+
       return {
         sucesso: false,
-        erro: 'Data do agendamento inválida.',
+        erro:
+          'Data do agendamento inválida.',
       };
     }
 
-    /*
-     * Coloca o horário escolhido pelo usuário
-     * dentro da data do agendamento.
-     */
+
     const partesHorario =
       String(horario).split(':');
 
-    const hora = Number(
-      partesHorario[0]
-    );
 
-    const minuto = Number(
-      partesHorario[1]
-    );
+    const hora =
+      Number(partesHorario[0]);
+
+    const minuto =
+      Number(partesHorario[1]);
+
 
     if (
       Number.isNaN(hora) ||
       Number.isNaN(minuto)
     ) {
+
       return {
         sucesso: false,
-        erro: 'Horário do agendamento inválido.',
+        erro:
+          'Horário do agendamento inválido.',
       };
     }
+
 
     dataAgendamento.setHours(
       hora,
@@ -151,18 +181,12 @@ export async function criarAgendamentoComNotificacao({
       0
     );
 
-    console.log(
-      'DATA DO AGENDAMENTO:',
-      dataAgendamento
-    );
 
-    /*
-     * O agendamento precisa estar no futuro.
-     */
     if (
       dataAgendamento.getTime() <=
       Date.now()
     ) {
+
       return {
         sucesso: false,
         erro:
@@ -170,9 +194,7 @@ export async function criarAgendamentoComNotificacao({
       };
     }
 
-    /*
-     * 1. Salva o agendamento no Firebase.
-     */
+
     const resultadoAgendamento =
       await criarAgendamento({
         usuarioId,
@@ -184,14 +206,15 @@ export async function criarAgendamentoComNotificacao({
         status: 'agendado',
       });
 
-    if (!resultadoAgendamento.sucesso) {
+
+    if (
+      !resultadoAgendamento.sucesso
+    ) {
+
       return resultadoAgendamento;
     }
 
-    /*
-     * 2. Cria imediatamente uma notificação
-     * no histórico do aplicativo.
-     */
+
     const mensagemAgendamento =
       `${nomePet} tem um agendamento ` +
       `de ${servico} no dia ` +
@@ -199,41 +222,53 @@ export async function criarAgendamentoComNotificacao({
         'pt-BR'
       )} às ${horario}.`;
 
+
     const notificacaoId =
       await salvarNotificacao({
+
         usuarioId,
-        tipo: 'agendamento',
+
+        tipo:
+          'agendamento',
+
         titulo:
           'Agendamento realizado 🐾',
+
         mensagem:
           mensagemAgendamento,
-        data: dataAgendamento,
+
+        data:
+          dataAgendamento,
+
         dados: {
           agendamentoId:
             resultadoAgendamento.id,
         },
+
+        chaveUnica:
+          `agendamento_${resultadoAgendamento.id}`,
+
       });
 
-    /*
-     * NÃO existe mais:
-     *
-     * - aviso 24 horas antes
-     * - scheduleNotificationAsync
-     * - expo-notifications
-     * - notificação em segundo plano
-     */
 
     return {
+
       sucesso: true,
+
       agendamentoId:
         resultadoAgendamento.id,
+
       notificacaoId,
+
     };
+
   } catch (error) {
+
     console.log(
       'ERRO AO CRIAR AGENDAMENTO COM NOTIFICAÇÃO:',
       error
     );
+
 
     return {
       sucesso: false,
@@ -242,124 +277,122 @@ export async function criarAgendamentoComNotificacao({
   }
 }
 
-/*
- * Verifica os agendamentos quando o usuário
- * abre o aplicativo.
- *
- * Regras:
- *
- * - agendamento futuro → nenhum aviso
- * - agendamento de hoje → aviso de compromisso hoje
- * - agendamento que já passou → aviso de compromisso passado
- *
- * Para evitar criar o mesmo aviso várias vezes,
- * usamos um campo de controle no documento:
- *
- * dados.tipoAviso
- */
 export async function verificarAvisosDeAgendamento(
   usuarioId,
   agendamentos = []
 ) {
+
   try {
-    if (!usuarioId || !Array.isArray(agendamentos)) {
+
+    if (
+      !usuarioId ||
+      !Array.isArray(agendamentos)
+    ) {
+
       return [];
     }
 
-    const agora = new Date();
 
-    /*
-     * Data de hoje sem horário.
-     */
-    const inicioHoje = new Date(
-      agora.getFullYear(),
-      agora.getMonth(),
-      agora.getDate(),
-      0,
-      0,
-      0,
-      0
-    );
+    const agora =
+      new Date();
 
-    const fimHoje = new Date(
-      agora.getFullYear(),
-      agora.getMonth(),
-      agora.getDate(),
-      23,
-      59,
-      59,
-      999
-    );
+
+    const inicioHoje =
+      new Date(
+        agora.getFullYear(),
+        agora.getMonth(),
+        agora.getDate(),
+        0,
+        0,
+        0,
+        0
+      );
+
+
+    const fimHoje =
+      new Date(
+        agora.getFullYear(),
+        agora.getMonth(),
+        agora.getDate(),
+        23,
+        59,
+        59,
+        999
+      );
+
 
     const avisosCriados = [];
 
-    for (const agendamento of agendamentos) {
+
+    for (
+      const agendamento
+      of agendamentos
+    ) {
+
       if (!agendamento) {
         continue;
       }
 
-      /*
-       * Converte a data do Firebase para Date.
-       */
+
       let dataAgendamento;
+
 
       if (
         agendamento.data &&
         typeof agendamento.data.toDate ===
           'function'
       ) {
+
         dataAgendamento =
           agendamento.data.toDate();
-      } else if (
-        agendamento.data instanceof Date
-      ) {
-        dataAgendamento =
-          new Date(agendamento.data);
+
       } else {
+
         dataAgendamento =
-          new Date(agendamento.data);
+          new Date(
+            agendamento.data
+          );
       }
+
 
       if (
         Number.isNaN(
           dataAgendamento.getTime()
         )
       ) {
+
         continue;
       }
 
-      /*
-       * Verifica se o agendamento é hoje.
-       */
+
       const ehHoje =
         dataAgendamento.getTime() >=
           inicioHoje.getTime() &&
         dataAgendamento.getTime() <=
           fimHoje.getTime();
 
-      /*
-       * Verifica se o agendamento já passou.
-       */
+
       const jaPassou =
         dataAgendamento.getTime() <
         agora.getTime();
 
-      /*
-       * FUTURO:
-       * Não fazemos nada.
-       */
-      if (!ehHoje && !jaPassou) {
+
+      if (
+        !ehHoje &&
+        !jaPassou
+      ) {
+
         continue;
       }
 
-      /*
-       * Define qual aviso deve ser criado.
-       */
+
       let tipoAviso;
       let titulo;
       let mensagem;
 
+
       if (jaPassou) {
+
         tipoAviso =
           'agendamento_passado';
 
@@ -371,7 +404,9 @@ export async function verificarAvisosDeAgendamento(
           `${agendamento.servico || 'serviço'} ` +
           `para ${agendamento.nomePet || 'seu pet'} ` +
           `às ${agendamento.horario}.`;
+
       } else {
+
         tipoAviso =
           'agendamento_hoje';
 
@@ -385,55 +420,162 @@ export async function verificarAvisosDeAgendamento(
           `${agendamento.horario}.`;
       }
 
-      /*
-       * Identificador único para esse aviso.
-       *
-       * Assim podemos evitar duplicação.
-       */
+
       const chaveAviso =
         `${agendamento.id || 'sem-id'}_${tipoAviso}`;
 
-      /*
-       * Por enquanto verificamos no próprio objeto
-       * se esse aviso já foi marcado.
-       */
-      if (
-        agendamento.avisos &&
-        agendamento.avisos[tipoAviso]
-      ) {
-        continue;
-      }
-
-      const dataAviso = new Date();
 
       const notificacaoId =
         await salvarNotificacao({
+
           usuarioId,
-          tipo: tipoAviso,
+
+          tipo:
+            tipoAviso,
+
           titulo,
+
           mensagem,
-          data: dataAviso,
+
+          data:
+            new Date(),
+
           dados: {
             agendamentoId:
               agendamento.id || null,
+
             petId:
               agendamento.petId || null,
+
             chaveAviso,
           },
+
+          chaveUnica:
+            `aviso_${chaveAviso}`,
+
         });
+
 
       if (notificacaoId) {
+
         avisosCriados.push({
-          id: notificacaoId,
-          tipo: tipoAviso,
+
+          id:
+            notificacaoId,
+
+          tipo:
+            tipoAviso,
+
         });
+
       }
+
     }
 
+
     return avisosCriados;
+
   } catch (error) {
+
     console.log(
       'ERRO AO VERIFICAR AVISOS DE AGENDAMENTO:',
+      error
+    );
+
+    return [];
+  }
+}
+
+export async function criarNotificacoesGerais(
+  usuarioId
+) {
+
+  try {
+
+    if (!usuarioId) {
+      return [];
+    }
+
+
+    const notificacoes = [];
+
+    const ofertaId =
+      await salvarNotificacao({
+
+        usuarioId,
+
+        tipo:
+          'oferta',
+
+        titulo:
+          'Tem oferta especial para você! 🎁',
+
+        mensagem:
+          'Confira as ofertas especiais da PetLover.',
+
+        data:
+          new Date(),
+
+        dados: {
+          origem:
+            'home',
+        },
+
+        chaveUnica:
+          `geral_${usuarioId}_oferta`,
+
+      });
+
+
+    if (ofertaId) {
+
+      notificacoes.push(
+        ofertaId
+      );
+    }
+
+    const servicoId =
+      await salvarNotificacao({
+
+        usuarioId,
+
+        tipo:
+          'servico',
+
+        titulo:
+          'Cuide ainda melhor do seu pet! ✨',
+
+        mensagem:
+          'Conheça nossos serviços e encontre o cuidado ideal para seu melhor amigo.',
+
+        data:
+          new Date(),
+
+        dados: {
+          origem:
+            'home',
+        },
+
+        chaveUnica:
+          `geral_${usuarioId}_servico`,
+
+      });
+
+
+    if (servicoId) {
+
+      notificacoes.push(
+        servicoId
+      );
+    }
+
+
+    return notificacoes;
+
+  } catch (error) {
+
+    console.log(
+      'ERRO AO CRIAR NOTIFICAÇÕES GERAIS:',
       error
     );
 
