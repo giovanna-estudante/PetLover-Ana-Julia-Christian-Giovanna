@@ -1,95 +1,61 @@
-import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
- 
-// Define como a notificação será apresentada quando o app estiver aberto
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
- 
-// Solicita permissão para enviar notificações
+/*
+ * PetLover - Notificações
+ *
+ * O PetLover não utiliza mais expo-notifications.
+ *
+ * As notificações agora são salvas no Firestore
+ * na coleção "notificacoes" e aparecem dentro
+ * do próprio aplicativo.
+ *
+ * Não existem:
+ * - notificações push
+ * - notificações locais agendadas
+ * - permissões de notificação do Android
+ * - expo-notifications neste fluxo
+ */
+
+/**
+ * Compatibilidade com código antigo.
+ *
+ * O novo sistema não precisa solicitar
+ * permissão ao sistema operacional.
+ */
 export async function solicitarPermissaoNotificacao() {
-  const { status: statusAtual } =
-    await Notifications.getPermissionsAsync();
- 
-  let status = statusAtual;
- 
-  if (status !== 'granted') {
-    const resultado =
-      await Notifications.requestPermissionsAsync();
- 
-    status = resultado.status;
-  }
- 
-  if (status !== 'granted') {
-    console.log('Permissão para notificações não concedida.');
-    return false;
-  }
- 
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('petlover', {
-      name: 'PetLover',
-      importance: Notifications.AndroidImportance.HIGH,
-      vibrationPattern: [0, 250, 250, 250],
-      sound: 'default',
-    });
-  }
- 
   return true;
 }
- 
-// Agenda uma notificação para uma data específica
-export async function agendarNotificacao({
-  titulo,
-  mensagem,
-  data,
-  dados = {},
-}) {
-  const permitido = await solicitarPermissaoNotificacao();
- 
-  if (!permitido) {
-    return null;
-  }
- 
-  const dataNotificacao = new Date(data);
- 
-  if (dataNotificacao <= new Date()) {
-    console.log('A data da notificação precisa estar no futuro.');
-    return null;
-  }
- 
-  const id = await Notifications.scheduleNotificationAsync({
-    content: {
-      title: titulo,
-      body: mensagem,
-      sound: 'default',
-      data: dados,
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DATE,
-      date: dataNotificacao,
-    },
-  });
- 
-  console.log('Notificação agendada:', id);
- 
-  return id;
+
+/**
+ * Compatibilidade com código antigo.
+ *
+ * O novo sistema não agenda notificações
+ * no dispositivo.
+ */
+export async function agendarNotificacao() {
+  return null;
 }
- 
-// Cancela uma notificação específica
-export async function cancelarNotificacao(id) {
-  if (!id) {
-    return;
-  }
- 
-  await Notifications.cancelScheduledNotificationAsync(id);
+
+/**
+ * Compatibilidade com código antigo.
+ *
+ * Não existem notificações locais para cancelar.
+ */
+export async function cancelarNotificacao() {
+  return null;
 }
- 
-// Lista as notificações que ainda estão agendadas
+
+/**
+ * Compatibilidade com código antigo.
+ *
+ * O novo sistema não possui notificações
+ * agendadas no dispositivo.
+ */
 export async function listarNotificacoesAgendadas() {
-  return await Notifications.getAllScheduledNotificationsAsync();
+  return [];
+}
+
+/**
+ * Compatibilidade com código antigo.
+ */
+export async function cancelarTodasNotificacoes() {
+  return null;
 }

@@ -8,7 +8,7 @@ import {
   Alert,
 } from 'react-native';
  
-import { fazerLogin } from '../services/auth';
+import { entrar as entrarNaConta } from '../services/auth';
 import { colors } from '../styles/theme';
  
 export default function Login({ navigation }) {
@@ -16,27 +16,60 @@ export default function Login({ navigation }) {
   const [senha, setSenha] = useState('');
   const [carregando, setCarregando] = useState(false);
  
-  async function entrar() {
+  async function executarLogin() {
     if (!email || !senha) {
-      Alert.alert('Atenção', 'Preencha e-mail e senha.');
-      return;
-    }
- 
-    setCarregando(true);
- 
-    const resultado = await fazerLogin(email, senha);
- 
-    setCarregando(false);
- 
-    if (!resultado.sucesso) {
       Alert.alert(
-        'Erro',
-        'Não foi possível realizar o login.'
+        'Atenção',
+        'Preencha e-mail e senha.'
       );
       return;
     }
- 
-    navigation.replace('App');
+
+    try {
+      setCarregando(true);
+
+      console.log('TENTANDO FAZER LOGIN...');
+      console.log('E-mail:', email.trim());
+
+      const resultado = await entrarNaConta(
+        email.trim(),
+        senha
+      );
+
+      console.log('RESULTADO DO LOGIN:', resultado);
+
+      if (!resultado.sucesso) {
+        console.log('CÓDIGO:', resultado.codigo);
+        console.log('ERRO:', resultado.erro);
+
+        Alert.alert(
+          'Erro no login',
+          `${resultado.codigo || 'Erro'}\n\n${
+            resultado.erro || 'Não foi possível realizar o login.'
+          }`
+        );
+
+        return;
+      }
+
+      console.log('LOGIN REALIZADO COM SUCESSO!');
+
+      navigation.replace('App');
+
+    } catch (error) {
+      console.log('ERRO COMPLETO NO LOGIN:', error);
+      console.log('CÓDIGO:', error?.code);
+      console.log('MENSAGEM:', error?.message);
+
+      Alert.alert(
+        'Erro no login',
+        `${error?.code || 'Erro'}\n\n${
+          error?.message || 'Não foi possível realizar o login.'
+        }`
+      );
+    } finally {
+      setCarregando(false);
+    }
   }
  
   return (
@@ -68,7 +101,7 @@ export default function Login({ navigation }) {
  
       <TouchableOpacity
         style={styles.botao}
-        onPress={entrar}
+        onPress={executarLogin}
         disabled={carregando}
       >
         <Text style={styles.textoBotao}>

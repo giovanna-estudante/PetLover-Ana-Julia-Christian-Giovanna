@@ -2,169 +2,179 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
   Alert,
+  TouchableOpacity,
 } from 'react-native';
- 
-import { cadastrarUsuario } from '../services/auth';
+
+import Input from '../components/Input';
+import Botao from '../components/Botao';
+
+import { cadastrar } from '../services/auth';
 import { colors } from '../styles/theme';
- 
+
 export default function Cadastro({ navigation }) {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
   const [carregando, setCarregando] = useState(false);
- 
-  async function cadastrar() {
+
+  async function realizarCadastro() {
     if (!email || !senha || !confirmarSenha) {
-      Alert.alert('Atenção', 'Preencha todos os campos.');
-      return;
-    }
- 
-    if (senha !== confirmarSenha) {
-      Alert.alert('Atenção', 'As senhas não são iguais.');
-      return;
-    }
- 
-    setCarregando(true);
- 
-    const resultado = await cadastrarUsuario(
-      email,
-      senha
-    );
- 
-    setCarregando(false);
- 
-    if (!resultado.sucesso) {
       Alert.alert(
-        'Erro',
-        'Não foi possível criar a conta.'
+        'Atenção',
+        'Preencha todos os campos.'
       );
       return;
     }
- 
-    Alert.alert(
-      'Cadastro realizado!',
-      'Sua conta foi criada com sucesso.',
-      [
-        {
-          text: 'Continuar',
-          onPress: () => navigation.replace('App'),
-        },
-      ]
-    );
+
+    if (senha !== confirmarSenha) {
+      Alert.alert(
+        'Atenção',
+        'As senhas não são iguais.'
+      );
+      return;
+    }
+
+    if (senha.length < 6) {
+      Alert.alert(
+        'Atenção',
+        'A senha deve ter pelo menos 6 caracteres.'
+      );
+      return;
+    }
+
+    try {
+      setCarregando(true);
+
+      const resultado = await cadastrar(
+        email.trim(),
+        senha
+      );
+
+      console.log(
+        'Usuário cadastrado:',
+        resultado.user.email
+      );
+
+      Alert.alert(
+        'Cadastro realizado! 🐾',
+        'Sua conta foi criada com sucesso.',
+        [
+          {
+            text: 'Continuar',
+            onPress: () => navigation.replace('App'),
+          },
+        ]
+      );
+    } catch (error) {
+      console.log('ERRO COMPLETO DO FIREBASE:', error);
+      console.log('CÓDIGO DO ERRO:', error?.code);
+      console.log('MENSAGEM DO ERRO:', error?.message);
+
+      Alert.alert(
+        'Erro no cadastro',
+        `${error?.code || 'Erro'}\n\n${error?.message || 'Não foi possível criar a conta.'}`
+      );
+    } finally {
+      setCarregando(false);
+    }
   }
- 
+
   return (
     <View style={styles.container}>
       <Text style={styles.logo}>🐾</Text>
- 
-      <Text style={styles.titulo}>Criar conta</Text>
- 
-      <Text style={styles.subtitulo}>
-        Faça parte da PetLover
+
+      <Text style={styles.titulo}>
+        Criar conta
       </Text>
- 
-      <TextInput
-        style={styles.input}
-        placeholder="E-mail"
+
+      <Text style={styles.subtitulo}>
+        Cadastre-se para cuidar ainda melhor do seu pet.
+      </Text>
+
+      <Input
+        label="E-mail"
+        placeholder="Digite seu e-mail"
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
         autoCapitalize="none"
       />
- 
-      <TextInput
-        style={styles.input}
-        placeholder="Senha"
+
+      <Input
+        label="Senha"
+        placeholder="Digite sua senha"
         value={senha}
         onChangeText={setSenha}
         secureTextEntry
+        autoCapitalize="none"
       />
- 
-      <TextInput
-        style={styles.input}
-        placeholder="Confirmar senha"
+
+      <Input
+        label="Confirmar senha"
+        placeholder="Digite a senha novamente"
         value={confirmarSenha}
         onChangeText={setConfirmarSenha}
         secureTextEntry
+        autoCapitalize="none"
       />
- 
+
+      <Botao
+        titulo="Criar conta"
+        onPress={realizarCadastro}
+        carregando={carregando}
+      />
+
       <TouchableOpacity
-        style={styles.botao}
-        onPress={cadastrar}
-        disabled={carregando}
-      >
-        <Text style={styles.textoBotao}>
-          {carregando ? 'Criando...' : 'Criar conta'}
-        </Text>
-      </TouchableOpacity>
- 
-      <TouchableOpacity
+        style={styles.login}
         onPress={() => navigation.goBack()}
       >
-        <Text style={styles.login}>
-          Já possui uma conta? Entrar
+        <Text style={styles.loginTexto}>
+          Já tenho uma conta
         </Text>
       </TouchableOpacity>
     </View>
   );
 }
- 
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
-    justifyContent: 'center',
     padding: 24,
+    justifyContent: 'center',
   },
- 
+
   logo: {
     fontSize: 55,
     textAlign: 'center',
+    marginBottom: 10,
   },
- 
+
   titulo: {
-    fontSize: 30,
+    fontSize: 28,
     fontWeight: 'bold',
-    color: colors.primary,
+    color: colors.black,
     textAlign: 'center',
-    marginTop: 10,
   },
- 
+
   subtitulo: {
-    textAlign: 'center',
+    fontSize: 15,
     color: colors.gray,
+    textAlign: 'center',
+    marginTop: 8,
     marginBottom: 30,
   },
- 
-  input: {
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.lightGray,
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 15,
-  },
- 
-  botao: {
-    backgroundColor: colors.primary,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
- 
-  textoBotao: {
-    color: colors.white,
-    fontSize: 17,
-    fontWeight: 'bold',
-  },
- 
+
   login: {
-    textAlign: 'center',
+    alignItems: 'center',
+    marginTop: 20,
+  },
+
+  loginTexto: {
     color: colors.primary,
-    marginTop: 22,
+    fontSize: 15,
+    fontWeight: 'bold',
   },
 });
